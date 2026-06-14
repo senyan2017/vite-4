@@ -35,30 +35,6 @@ const argv = mri<{
 })
 const cwd = process.cwd()
 
-// prettier-ignore
-const helpMessage = `\
-Usage: create-vite [OPTION]... [DIRECTORY]
-
-Create a new Vite project in JavaScript or TypeScript.
-When running in TTY, the CLI will start in interactive mode.
-
-Options:
-  -t, --template NAME                   use a specific template
-  -i, --immediate / --no-immediate      install dependencies and start dev
-  --overwrite                           remove existing files if target directory is not empty
-  --interactive / --no-interactive      force interactive / non-interactive mode
-  -h, --help                            display this help message
-
-Available templates:
-${yellow    ('vanilla-ts          vanilla'       )}
-${green     ('vue-ts              vue'           )}
-${cyan      ('react-ts            react'         )}
-${cyan      ('react-compiler-ts   react-compiler')}
-${magenta   ('preact-ts           preact'        )}
-${redBright ('lit-ts              lit'           )}
-${red       ('svelte-ts           svelte'        )}
-${blue      ('solid-ts            solid'         )}
-${blueBright('qwik-ts             qwik'          )}`
 
 type ColorFunc = (str: string) => string
 type Framework = {
@@ -75,7 +51,7 @@ type FrameworkVariant = {
   customCommand?: string
 }
 
-const FRAMEWORKS: Framework[] = [
+export const FRAMEWORKS: Framework[] = [
   {
     name: 'vanilla',
     display: 'Vanilla',
@@ -389,6 +365,51 @@ const TEMPLATES = FRAMEWORKS.map((f) => f.variants.map((v) => v.name)).reduce(
   [],
 )
 
+/**
+ * Generate the "Available templates" section for the help message,
+ * derived directly from FRAMEWORKS so it stays in sync automatically.
+ * Only scaffold variants (those without a customCommand) are listed.
+ */
+export function getTemplatesHelp(): string {
+  const lines: string[] = []
+
+  for (const framework of FRAMEWORKS) {
+    const scaffoldVariants = framework.variants.filter((v) => !v.customCommand)
+    if (scaffoldVariants.length === 0) continue
+
+    const names = scaffoldVariants.map((v) => v.name)
+    const maxLen = Math.max(...names.map((n) => n.length))
+    const gap = 4
+
+    let line = ''
+    for (let i = 0; i < names.length; i++) {
+      if (i < names.length - 1) {
+        line += names[i].padEnd(maxLen + gap, ' ')
+      } else {
+        line += names[i]
+      }
+    }
+
+    lines.push(framework.color(line))
+  }
+
+  return `\
+Usage: create-vite [OPTION]... [DIRECTORY]
+
+Create a new Vite project in JavaScript or TypeScript.
+When running in TTY, the CLI will start in interactive mode.
+
+Options:
+  -t, --template NAME                   use a specific template
+  -i, --immediate / --no-immediate      install dependencies and start dev
+  --overwrite                           remove existing files if target directory is not empty
+  --interactive / --no-interactive      force interactive / non-interactive mode
+  -h, --help                            display this help message
+
+Available templates:
+${lines.join('\n')}`
+}
+
 const renameFiles: Record<string, string | undefined> = {
   _gitignore: '.gitignore',
 }
@@ -445,7 +466,7 @@ async function init() {
 
   const help = argv.help
   if (help) {
-    console.log(helpMessage)
+    console.log(getTemplatesHelp())
     return
   }
 
