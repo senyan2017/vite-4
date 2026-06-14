@@ -229,6 +229,39 @@ test('return help usage how to use create-vite with -h alias', () => {
   expect(stdout).toContain(message)
 })
 
+test('lists available templates with --list flag', () => {
+  const { stdout } = run(['--list'], { cwd: import.meta.dirname })
+  expect(stdout).toContain('Available templates:')
+  expect(stdout).toContain('vanilla-ts')
+  expect(stdout).toContain('vue-ts')
+  expect(stdout).toContain('react-ts')
+  expect(stdout).toContain('Vanilla')
+  expect(stdout).toContain('Vue')
+  expect(stdout).toContain('React')
+  expect(stdout).toContain('(external)')
+})
+
+test('lists available templates with -l alias', () => {
+  const { stdout } = run(['-l'], { cwd: import.meta.dirname })
+  expect(stdout).toContain('Available templates:')
+  expect(stdout).toContain('vanilla-ts')
+})
+
+test('--list does not create any files', () => {
+  const testDir = path.join(import.meta.dirname, 'list-test-output')
+  if (fs.existsSync(testDir)) {
+    fs.rmSync(testDir, { recursive: true, force: true })
+  }
+  fs.mkdirSync(testDir, { recursive: true })
+
+  run(['--list'], { cwd: testDir })
+
+  const files = fs.readdirSync(testDir)
+  expect(files.length).toBe(0)
+
+  fs.rmSync(testDir, { recursive: true, force: true })
+})
+
 test('sets index.html title to project name', () => {
   const { stdout } = run([projectName, '--template', 'react'], {
     cwd: import.meta.dirname,

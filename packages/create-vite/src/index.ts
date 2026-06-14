@@ -28,9 +28,10 @@ const argv = mri<{
   overwrite?: boolean
   immediate?: boolean
   interactive?: boolean
+  list?: boolean
 }>(process.argv.slice(2), {
-  boolean: ['help', 'overwrite', 'immediate', 'interactive'],
-  alias: { h: 'help', t: 'template', i: 'immediate' },
+  boolean: ['help', 'overwrite', 'immediate', 'interactive', 'list'],
+  alias: { h: 'help', t: 'template', i: 'immediate', l: 'list' },
   string: ['template'],
 })
 const cwd = process.cwd()
@@ -44,6 +45,7 @@ When running in TTY, the CLI will start in interactive mode.
 
 Options:
   -t, --template NAME                   use a specific template
+  -l, --list                            list available templates
   -i, --immediate / --no-immediate      install dependencies and start dev
   --overwrite                           remove existing files if target directory is not empty
   --interactive / --no-interactive      force interactive / non-interactive mode
@@ -434,6 +436,45 @@ function start(root: string, agent: string) {
   })
 }
 
+function listTemplates() {
+  console.log('\nAvailable templates:\n')
+
+  const rows: Array<{
+    name: string
+    framework: string
+    display: string
+    color: ColorFunc
+    isExternal: boolean
+  }> = []
+
+  for (const framework of FRAMEWORKS) {
+    for (const variant of framework.variants) {
+      rows.push({
+        name: variant.name,
+        framework: framework.display,
+        display: variant.display,
+        color: variant.color,
+        isExternal: !!variant.customCommand,
+      })
+    }
+  }
+
+  const maxNameLen = Math.max(...rows.map((r) => r.name.length))
+  const maxFrameworkLen = Math.max(
+    ...rows.map((r) => r.framework.length),
+  )
+
+  for (const row of rows) {
+    const paddedName = row.name.padEnd(maxNameLen + 2)
+    const paddedFramework = row.framework.padEnd(maxFrameworkLen + 2)
+    const externalTag = row.isExternal ? ' (external)' : ''
+    const line = `  ${row.color(paddedName)}${paddedFramework}${row.display}${externalTag}`
+    console.log(line)
+  }
+
+  console.log('')
+}
+
 async function init() {
   const argTargetDir = argv._[0]
     ? formatTargetDir(String(argv._[0]))
@@ -446,6 +487,12 @@ async function init() {
   const help = argv.help
   if (help) {
     console.log(helpMessage)
+    return
+  }
+
+  const list = argv.list
+  if (list) {
+    listTemplates()
     return
   }
 
