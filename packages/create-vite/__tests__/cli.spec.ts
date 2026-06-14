@@ -91,6 +91,22 @@ test('prompts for the framework on supplying an invalid template', () => {
   )
 })
 
+test('fails in non-interactive mode on supplying an invalid template', () => {
+  expect(() =>
+    run([projectName, '--no-interactive', '--template', 'unknown'], {
+      cwd: import.meta.dirname,
+    }),
+  ).toThrowError(/is not a valid template/)
+})
+
+test('fails in non-interactive mode when --template has an empty value', () => {
+  expect(() =>
+    run([projectName, '--no-interactive', '--template=', '--no-rolldown'], {
+      cwd: import.meta.dirname,
+    }),
+  ).toThrowError(/requires a template name/)
+})
+
 test('asks to overwrite non-empty target directory', () => {
   createNonEmptyDir()
   const { stdout } = run([projectName, '--interactive'], {

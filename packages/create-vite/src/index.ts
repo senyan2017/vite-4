@@ -389,6 +389,59 @@ const TEMPLATES = FRAMEWORKS.map((f) => f.variants.map((v) => v.name)).reduce(
   [],
 )
 
+type TemplateValidation =
+  | { action: 'use'; template: string }
+  | { action: 'prompt'; warning?: string }
+  | { action: 'fail'; message: string }
+
+function getBuiltinTemplatesList() {
+  return FRAMEWORKS.flatMap((framework) =>
+    framework.variants
+      .filter((variant) => !variant.customCommand)
+      .map((variant) => `- ${variant.name}`),
+  ).join('\n')
+}
+
+function validateTemplate(
+  argTemplate: string | undefined,
+  interactive: boolean,
+): TemplateValidation {
+  if (argTemplate === undefined) {
+    return interactive
+      ? { action: 'prompt' }
+      : { action: 'use', template: 'vanilla-ts' }
+  }
+
+  if (argTemplate.trim() === '') {
+    return interactive
+      ? { action: 'prompt' }
+      : {
+          action: 'fail',
+          message:
+            'Error: --template requires a template name.\n\n' +
+            `Available templates:\n${getBuiltinTemplatesList()}\n\n` +
+            'Run with --help for more information.',
+        }
+  }
+
+  if (!TEMPLATES.includes(argTemplate)) {
+    return interactive
+      ? {
+          action: 'prompt',
+          warning: `"${argTemplate}" isn't a valid template. Please choose from below: `,
+        }
+      : {
+          action: 'fail',
+          message:
+            `Error: "${argTemplate}" is not a valid template.\n\n` +
+            `Available templates:\n${getBuiltinTemplatesList()}\n\n` +
+            'Run with --help for more information.',
+        }
+  }
+
+  return { action: 'use', template: argTemplate }
+}
+
 const renameFiles: Record<string, string | undefined> = {
   _gitignore: '.gitignore',
 }
@@ -550,50 +603,50 @@ async function init() {
   }
 
   // 4. Choose a framework and variant
-  let template = argTemplate
-  let hasInvalidArgTemplate = false
-  if (argTemplate && !TEMPLATES.includes(argTemplate)) {
-    template = undefined
-    hasInvalidArgTemplate = true
+  const templateValidation = validateTemplate(argTemplate, interactive)
+
+  if (templateValidation.action === 'fail') {
+    console.error(templateValidation.message)
+    process.exit(1)
   }
+
+  let template =
+    templateValidation.action === 'use'
+      ? templateValidation.template
+      : undefined
+
   if (!template) {
-    if (interactive) {
-      const framework = await prompts.select({
-        message: hasInvalidArgTemplate
-          ? `"${argTemplate}" isn't a valid template. Please choose from below: `
-          : 'Select a framework:',
-        options: FRAMEWORKS.map((framework) => {
-          const frameworkColor = framework.color
-          return {
-            label: frameworkColor(framework.display || framework.name),
-            value: framework,
-          }
-        }),
-      })
-      if (prompts.isCancel(framework)) return cancel()
+    const framework = await prompts.select({
+      message: templateValidation.warning ?? 'Select a framework:',
+      options: FRAMEWORKS.map((framework) => {
+        const frameworkColor = framework.color
+        return {
+          label: frameworkColor(framework.display || framework.name),
+          value: framework,
+        }
+      }),
+    })
+    if (prompts.isCancel(framework)) return cancel()
 
-      const variant = await prompts.select({
-        message: 'Select a variant:',
-        options: framework.variants.map((variant) => {
-          const command = variant.customCommand
-            ? getFullCustomCommand(variant.customCommand, pkgInfo).replace(
-                / TARGET_DIR$/,
-                '',
-              )
-            : undefined
-          return {
-            label: getLabel(variant),
-            value: variant.name,
-            hint: command,
-          }
-        }),
-      })
-      if (prompts.isCancel(variant)) return cancel()
+    const variant = await prompts.select({
+      message: 'Select a variant:',
+      options: framework.variants.map((variant) => {
+        const command = variant.customCommand
+          ? getFullCustomCommand(variant.customCommand, pkgInfo).replace(
+              / TARGET_DIR$/,
+              '',
+            )
+          : undefined
+        return {
+          label: getLabel(variant),
+          value: variant.name,
+          hint: command,
+        }
+      }),
+    })
+    if (prompts.isCancel(variant)) return cancel()
 
-      template = variant
-    } else {
-      template = 'vanilla-ts'
-    }
+    template = variant
   }
 
   const pkgManager = pkgInfo ? pkgInfo.name : 'npm'
